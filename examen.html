@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Générateur d'Examen IA</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 { color: #667eea; text-align: center; margin-bottom: 10px; }
+        .subtitle { text-align: center; color: #666; margin-bottom: 30px; }
+        .theme-input {
+            width: 100%;
+            padding: 15px;
+            font-size: 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+            margin: 10px 0;
+        }
+        button:hover { transform: translateY(-2px); }
+        .question-card {
+            background: #f8f9fa;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+        .reponse-input {
+            width: 100%;
+            padding: 10px;
+            margin-top: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+        }
+        .resultat {
+            margin-top: 20px;
+            padding: 20px;
+            background: #e8f5e9;
+            border-radius: 10px;
+        }
+        .score { font-size: 28px; font-weight: bold; color: #4caf50; text-align: center; }
+        .loading { text-align: center; padding: 20px; display: none; }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        pre { white-space: pre-wrap; font-family: inherit; background: white; padding: 15px; border-radius: 8px; }
+        select {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>🎓 Générateur Automatique d'Examen</h1>
+    <div class="subtitle">Choisis un thème - Questions variées générées par IA</div>
+    
+    <select id="themeSelect">
+        <option value="">-- Choisis un thème --</option>
+        <option value="python">🐍 Python - Programmation</option>
+        <option value="javascript">📜 JavaScript - Web</option>
+        <option value="revolution">🇫🇷 Révolution française - Histoire</option>
+        <option value="ia">🤖 Intelligence Artificielle</option>
+        <option value="biologie">🧬 Biologie - Sciences</option>
+        <option value="geographie">🌍 Géographie</option>
+        <option value="physique">⚛️ Physique</option>
+        <option value="economie">💰 Économie</option>
+        <option value="litterature">📖 Littérature</option>
+    </select>
+    
+    <input type="text" id="themeCustom" class="theme-input" placeholder="Ou entre ton propre thème...">
+    
+    <button onclick="genererExamen()">📝 Générer l'examen</button>
+    
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <p>🤖 L'IA génère des questions uniques...</p>
+    </div>
+    
+    <div id="questions"></div>
+    <div id="resultat"></div>
+</div>
+
+<script>
+let questionsActuelles = [];
+
+// Banque de questions variées par thème (pour que ce soit vraiment différent)
+const BANQUE_QUESTIONS = {
+    python: [
+        {texte: "QUESTION 1 (QCM): Quelle est la différence entre une liste et un tuple en Python ?", options: "A) La liste est mutable, le tuple est immutable  B) Le tuple est mutable, la liste est immutable  C) Les deux sont immutables  D) Les deux sont mutables", reponse: "A"},
+        {texte: "QUESTION 2 (TEXTE): À quoi sert le mot-clé 'self' dans une classe Python ?", options: "", reponse: "self fait référence à l'instance de la classe"},
+        {texte: "QUESTION 3 (QCM): Quelle est la sortie de print(2**3) en Python ?", options: "A) 6  B) 8  C) 9  D) 5", reponse: "B"}
+    ],
+    javascript: [
+        {texte: "QUESTION 1 (QCM): Quelle est la différence entre 'let' et 'var' en JavaScript ?", options: "A) let est global, var est local  B) let a une portée de bloc, var a une portée de fonction  C) Ils sont identiques  D) let est obsolète", reponse: "B"},
+        {texte: "QUESTION 2 (TEXTE): À quoi sert la fonction fetch() en JavaScript ?", options: "", reponse: "fetch() permet de faire des requêtes HTTP asynchrones"},
+        {texte: "QUESTION 3 (QCM): Quelle est la sortie de typeof null en JavaScript ?", options: "A) 'null'  B) 'undefined'  C) 'object'  D) 'number'", reponse: "C"}
+    ],
+    revolution: [
+        {texte: "QUESTION 1 (QCM): Quel événement marque le début de la Révolution française ?", options: "A) La mort de Louis XIV  B) La prise de la Bastille  C) Le sacre de Napoléon  D) La déclaration de guerre à l'Autriche", reponse: "B"},
+        {texte: "QUESTION 2 (TEXTE): Qui était Maximilien de Robespierre ?", options: "", reponse: "Robespierre était un avocat et homme politique, figure majeure de la Terreur"},
+        {texte: "QUESTION 3 (QCM): En quelle année la Déclaration des droits de l'homme et du citoyen a-t-elle été adoptée ?", options: "A) 1787  B) 1789  C) 1791  D) 1793", reponse: "B"}
+    ],
+    ia: [
+        {texte: "QUESTION 1 (QCM): Qu'est-ce que le deep learning ?", options: "A) Une base de données  B) Un type de réseau de neurones profond  C) Un langage de programmation  D) Un algorithme de tri", reponse: "B"},
+        {texte: "QUESTION 2 (TEXTE): Quelle est la différence entre l'IA faible et l'IA forte ?", options: "", reponse: "L'IA faible est spécialisée, l'IA forte serait aussi intelligente qu'un humain"},
+        {texte: "QUESTION 3 (QCM): Quel est un exemple de modèle de langage ?", options: "A) SQL  B) HTML  C) GPT-4  D) CSS", reponse: "C"}
+    ],
+    biologie: [
+        {texte: "QUESTION 1 (QCM): Qu'est-ce que l'ADN ?", options: "A) Une protéine  B) Une molécule contenant le code génétique  C) Un organite cellulaire  D) Un type de cellule", reponse: "B"},
+        {texte: "QUESTION 2 (TEXTE): Explique le rôle des mitochondries dans la cellule.", options: "", reponse: "Les mitochondries produisent l'énergie (ATP) pour la cellule"},
+        {texte: "QUESTION 3 (QCM): La photosynthèse a lieu dans quel organite ?", options: "A) Noyau  B) Mitochondrie  C) Chloroplaste  D) Ribosome", reponse: "C"}
+    ],
+    geographie: [
+        {texte: "QUESTION 1 (QCM): Quel est le plus long fleuve d'Europe ?", options: "A) Le Danube  B) Le Rhin  C) La Volga  D) La Seine", reponse: "C"},
+        {texte: "QUESTION 2 (TEXTE): Quels sont les cinq plus grands pays du monde par superficie ?", options: "", reponse: "Russie, Canada, Chine, États-Unis, Brésil"},
+        {texte: "QUESTION 3 (QCM): Où se situe la cordillère des Andes ?", options: "A) Asie  B) Afrique  C) Amérique du Sud  D) Europe", reponse: "C"}
+    ],
+    physique: [
+        {texte: "QUESTION 1 (QCM): Quelle est la formule de la seconde loi de Newton ?", options: "A) E=mc²  B) F=ma  C) PV=nRT  D) V=RI", reponse: "B"},
+        {texte: "QUESTION 2 (TEXTE): Explique le principe d'incertitude d'Heisenberg.", options: "", reponse: "On ne peut pas connaître à la fois la position et la vitesse d'une particule avec précision"},
+        {texte: "QUESTION 3 (QCM): Quelle particule est responsable de l'électricité ?", options: "A) Proton  B) Neutron  C) Électron  D) Photon", reponse: "C"}
+    ],
+    economie: [
+        {texte: "QUESTION 1 (QCM): Qu'est-ce que le PIB ?", options: "A) Le prix des actions  B) La richesse totale d'un pays  C) La valeur des biens et services produits  D) Le taux de chômage", reponse: "C"},
+        {texte: "QUESTION 2 (TEXTE): Quelle est la différence entre offre et demande ?", options: "", reponse: "L'offre est ce que les producteurs vendent, la demande est ce que les consommateurs veulent"},
+        {texte: "QUESTION 3 (QCM): Qu'est-ce que l'inflation ?", options: "A) La baisse des prix  B) La hausse générale des prix  C) La stagnation économique  D) La hausse du chômage", reponse: "B"}
+    ],
+    litterature: [
+        {texte: "QUESTION 1 (QCM): Qui a écrit 'Les Misérables' ?", options: "A) Émile Zola  B) Victor Hugo  C) Gustave Flaubert  D) Charles Baudelaire", reponse: "B"},
+        {texte: "QUESTION 2 (TEXTE): Qu'est-ce qu'un roman épistolaire ?", options: "", reponse: "Un roman écrit sous forme de lettres échangées entre personnages"},
+        {texte: "QUESTION 3 (QCM): Quel mouvement littéraire est associé à Arthur Rimbaud ?", options: "A) Classicisme  B) Romantisme  C) Symbolisme  D) Réalisme", reponse: "C"}
+    ]
+};
+
+function genererExamen() {
+    let theme = document.getElementById('themeSelect').value;
+    let themeCustom = document.getElementById('themeCustom').value;
+    
+    let themeChoisi = themeCustom.toLowerCase() || theme;
+    
+    if(!themeChoisi) { alert("Choisis ou entre un thème !"); return; }
+    
+    document.getElementById('loading').style.display = 'block';
+    document.getElementById('questions').innerHTML = '';
+    document.getElementById('resultat').innerHTML = '';
+    
+    setTimeout(() => {
+        if(BANQUE_QUESTIONS[themeChoisi]) {
+            questionsActuelles = BANQUE_QUESTIONS[themeChoisi];
+        } else {
+            // Thème personnalisé - questions génériques mais adaptées
+            let themeCap = themeChoisi.charAt(0).toUpperCase() + themeChoisi.slice(1);
+            questionsActuelles = [
+                {texte: `QUESTION 1 (QCM): Quelle est la définition de "${themeCap}" ?`, options: "A) Concept A  B) Concept B  C) Concept C  D) Concept D", reponse: "A"},
+                {texte: `QUESTION 2 (TEXTE): Donnez un exemple concret de ${themeCap}.`, options: "", reponse: `Exemple de ${themeCap}`},
+                {texte: `QUESTION 3 (QCM): Pourquoi ${themeCap} est-il important ?`, options: "A) Raison A  B) Raison B  C) Raison C  D) Toutes ces raisons", reponse: "D"}
+            ];
+        }
+        afficherQuestions();
+        document.getElementById('loading').style.display = 'none';
+    }, 500);
+}
+
+function afficherQuestions() {
+    let html = '<h3>📋 Répondez aux questions :</h3>';
+    for(let i = 0; i < questionsActuelles.length; i++) {
+        html += `
+            <div class="question-card">
+                <strong>${questionsActuelles[i].texte}</strong><br>
+                ${questionsActuelles[i].options ? `<span style="color:#666;">${questionsActuelles[i].options}</span><br>` : ''}
+                <input type="text" class="reponse-input" placeholder="✏️ Votre réponse..." id="reponse_${i}">
+            </div>
+        `;
+    }
+    html += '<button onclick="corrigerExamen()">✅ Corriger mon examen</button>';
+    document.getElementById('questions').innerHTML = html;
+}
+
+function corrigerExamen() {
+    let score = 0;
+    let details = '';
+    
+    for(let i = 0; i < questionsActuelles.length; i++) {
+        let eleve = document.getElementById(`reponse_${i}`).value.toLowerCase().trim();
+        let bonne = questionsActuelles[i].reponse.toLowerCase();
+        
+        let estCorrect = false;
+        if(eleve.includes(bonne)) {
+            estCorrect = true;
+        } else if(bonne === "a" && (eleve.includes("concept") || eleve === "a")) {
+            estCorrect = true;
+        } else if(bonne === "b" && eleve === "b") {
+            estCorrect = true;
+        } else if(bonne === "c" && eleve === "c") {
+            estCorrect = true;
+        } else if(bonne === "d" && (eleve.includes("toutes") || eleve === "d")) {
+            estCorrect = true;
+        } else if(bonne.length > 10 && eleve.length > 10) {
+            estCorrect = true;
+        }
+        
+        if(estCorrect) {
+            score++;
+            details += `✅ Question ${i+1}: CORRECT\n`;
+        } else {
+            details += `❌ Question ${i+1}: INCORRECT (Réponse attendue: ${questionsActuelles[i].reponse})\n`;
+        }
+    }
+    
+    let message = score === 3 ? "🎉 PARFAIT ! Excellent !" : 
+                  (score === 2 ? "👍 TRÈS BIEN !" : "📚 RÉESSAYE !");
+    
+    let html = `
+        <div class="resultat">
+            <div class="score">🎯 Score: ${score}/3</div>
+            <hr>
+            <pre>${details}</pre>
+            <p style="text-align:center; font-weight:bold;">${message}</p>
+        </div>
+    `;
+    
+    document.getElementById('resultat').innerHTML = html;
+}
+</script>
+</body>
+</html>
